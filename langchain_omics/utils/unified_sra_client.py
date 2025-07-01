@@ -80,35 +80,49 @@ class UnifiedSRAClient(BaseModel):
             raise ValueError(f"Invalid JSON response: {e}")
 
     def discover_fields(self, sra_domain: str) -> List[str]:
-        """Use ENA Portal to discover available fields for SRA domain (cached).
+        """Use EBI Search to discover available retrievable fields for SRA domain (cached).
         
         Args:
             sra_domain: SRA domain (e.g., 'sra-study', 'sra-sample')
             
         Returns:
-            List of available field names
+            List of retrievable field names from EBI Search
         """
         if sra_domain in self.field_cache:
             return self.field_cache[sra_domain]
         
-        # Map SRA domain to ENA Portal result type
-        ena_result_type = self.FIELD_DISCOVERY_MAPPING.get(sra_domain)
-        if not ena_result_type:
-            return []
-        
-        # Get fields from ENA Portal
-        url = f"{self.ena_portal_base_url}/returnFields"
-        params = {"result": ena_result_type, "format": "json"}
+        # Get domain metadata from EBI Search
+        url = f"{self.ebi_search_base_url}/{sra_domain}"
+        params = {"format": "json"}
         
         try:
             response = self._make_request(url, params)
-            if isinstance(response, list):
-                fields = [field.get("columnId", "") for field in response if field.get("columnId")]
-                self.field_cache[sra_domain] = fields
-                return fields
-        except Exception:
-            # If field discovery fails, return empty list
-            pass
+            domains_info = response.get("domains", [])
+            
+            if domains_info:
+                domain_info = domains_info[0]
+                field_infos = domain_info.get("fieldInfos", [])
+                
+                retrievable_fields = []
+                for field in field_infos:
+                    field_id = field.get("id")
+                    options = field.get("options", [])
+                    
+                    # Check if field is retrievable
+                    is_retrievable = False
+                    for option in options:
+                        if option.get("name") == "retrievable" and option.get("value") == "true":
+                            is_retrievable = True
+                            break
+                    
+                    if is_retrievable and field_id:
+                        retrievable_fields.append(field_id)
+                
+                self.field_cache[sra_domain] = retrievable_fields
+                return retrievable_fields
+                
+        except Exception as e:
+            self.logger.debug(f"Field discovery failed for {sra_domain}: {e}")
         
         return []
 
@@ -251,7 +265,8 @@ class UnifiedSRAClient(BaseModel):
                 
                 # Build mapping of source_id -> [target_ids] and check for pagination needs
                 for entry in entries:
-                    source_id = entry.get("source")
+                    # The source_id is actually the acc/id of the entry we queried
+                    source_id = entry.get("acc") or entry.get("id")
                     if source_id:
                         cross_refs = []
                         references = entry.get("references", [])
@@ -449,13 +464,10 @@ class UnifiedSRAClient(BaseModel):
             if value:
                 processed[key] = value
         
-        # Process fields array into flat dictionary
-        fields = entry.get("fields", [])
-        if isinstance(fields, list):
-            for field in fields:
-                field_id = field.get("id")
-                field_values = field.get("values", [])
-                
+        # Process fields - EBI Search returns fields as a dictionary
+        fields = entry.get("fields", {})
+        if isinstance(fields, dict):
+            for field_id, field_values in fields.items():
                 if field_id and field_values:
                     # Use single value if only one, otherwise keep as list
                     if len(field_values) == 1:
@@ -489,7 +501,7 @@ class UnifiedSRAClient(BaseModel):
 
     def _assemble_nested_structure(self, studies: List[Dict], samples: List[Dict], 
                                   experiments: List[Dict], runs: List[Dict]) -> List[Dict[str, Any]]:
-        """Assemble flat data into nested Study -> Sample -> Experiment -> Run structure.
+        """Assemble flat data into nested Study -> Experiment -> Sample + Runs structure.
         
         Args:
             studies: List of study records
@@ -498,7 +510,7 @@ class UnifiedSRAClient(BaseModel):
             runs: List of run records
             
         Returns:
-            List of nested study objects
+            List of nested study objects with correct SRA hierarchy
         """
         # Index data by accessions for efficient lookup
         study_map = {}
@@ -527,47 +539,35 @@ class UnifiedSRAClient(BaseModel):
             if acc:
                 run_map[acc] = run
         
-        # Build nested structure using cross-references
+        # Build nested structure: Study -> Experiments -> (Sample + Runs)
         result_studies = []
         
         for study_acc, study_data in study_map.items():
             nested_study = dict(study_data)
-            nested_study["samples"] = []
+            nested_study["experiments"] = []
             
-            # Get experiments for this study
+            # Get experiments for this study (direct relationship)
             study_experiments = self.get_cross_references("sra-study", study_acc, "sra-experiment")
             
-            # Group experiments by sample
-            sample_to_experiments = {}
             for exp_acc in study_experiments:
                 if exp_acc in experiment_map:
-                    # Get samples for this experiment
+                    nested_experiment = dict(experiment_map[exp_acc])
+                    
+                    # Get the sample for this experiment (one sample per experiment)
                     exp_samples = self.get_cross_references("sra-experiment", exp_acc, "sra-sample")
-                    for sample_acc in exp_samples:
-                        if sample_acc not in sample_to_experiments:
-                            sample_to_experiments[sample_acc] = []
-                        sample_to_experiments[sample_acc].append(exp_acc)
-            
-            # Build sample -> experiment -> run structure
-            for sample_acc, exp_accs in sample_to_experiments.items():
-                if sample_acc in sample_map:
-                    nested_sample = dict(sample_map[sample_acc])
-                    nested_sample["experiments"] = []
+                    if exp_samples and exp_samples[0] in sample_map:
+                        nested_experiment["sample"] = sample_map[exp_samples[0]]
+                    else:
+                        nested_experiment["sample"] = None
                     
-                    for exp_acc in exp_accs:
-                        if exp_acc in experiment_map:
-                            nested_experiment = dict(experiment_map[exp_acc])
-                            nested_experiment["runs"] = []
-                            
-                            # Get runs for this experiment
-                            exp_runs = self.get_cross_references("sra-experiment", exp_acc, "sra-run")
-                            for run_acc in exp_runs:
-                                if run_acc in run_map:
-                                    nested_experiment["runs"].append(run_map[run_acc])
-                            
-                            nested_sample["experiments"].append(nested_experiment)
+                    # Get runs for this experiment
+                    nested_experiment["runs"] = []
+                    exp_runs = self.get_cross_references("sra-experiment", exp_acc, "sra-run")
+                    for run_acc in exp_runs:
+                        if run_acc in run_map:
+                            nested_experiment["runs"].append(run_map[run_acc])
                     
-                    nested_study["samples"].append(nested_sample)
+                    nested_study["experiments"].append(nested_experiment)
             
             result_studies.append(nested_study)
         
