@@ -1,5 +1,5 @@
 """Utility modules for langchain-omics."""
 
-from .ebi_search_client import EBISearchAPIWrapper
+from .unified_sra_client import UnifiedSRAClient
 
-__all__ = ["EBISearchAPIWrapper"]
+__all__ = ["UnifiedSRAClient"]

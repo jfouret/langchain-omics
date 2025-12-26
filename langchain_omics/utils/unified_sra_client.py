@@ -8,7 +8,6 @@ from urllib.parse import urlencode
 import requests
 from pydantic import BaseModel, Field, ConfigDict
 
-
 class UnifiedSRAClient(BaseModel):
     """Unified SRA client using EBI Search for data + ENA Portal for field discovery.
     

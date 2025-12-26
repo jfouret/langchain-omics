@@ -1,283 +1,294 @@
 """SRA retrievers using EBI Search API."""
 
+import json
 from typing import Any, Dict, List, Optional
 
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 
-from .utils.ebi_search_client import EBISearchAPIWrapper
+from .utils.unified_sra_client import UnifiedSRAClient
 
 
-# SRA Database Configuration
-SRA_DATABASES = {
-    "sra-sample": {
-        "name": "Sample",
-        "key_fields": ["acc", "id", "description", "scientific_name", "country", 
-                      "region", "collection_date", "center_name", "strain", "host"],
-        "cross_ref_fields": ["BIOSAMPLE", "TAXON"],
-        "cross_ref_targets": {
-            "BIOSAMPLE": "biosamples",
-            "TAXON": "taxonomy"
-        },
-        "related_domains": ["sra-study", "sra-experiment"]
-    },
-    "sra-study": {
-        "name": "Study",
-        "key_fields": ["acc", "id", "title", "description", "center_name", 
-                      "first_public_date"],
-        "related_domains": ["sra-sample", "sra-experiment", "sra-project"]
-    },
-    "sra-experiment": {
-        "name": "Experiment", 
-        "key_fields": ["acc", "id", "title", "description", "platform",
-                      "instrument_model", "library_strategy"],
-        "related_domains": ["sra-sample", "sra-study", "sra-run"]
-    },
-    "sra-run": {
-        "name": "Run",
-        "key_fields": ["acc", "id", "description", "total_spots", "total_bases"],
-        "related_domains": ["sra-experiment"]
-    }
-}
+class SRARetriever(BaseRetriever):
+    """SRA retriever using EBI Search API with multiple search modes."""
 
-
-class SRARetriever(BaseRetriever, EBISearchAPIWrapper):
-    """SRA retriever using EBI Search API.
-    
-    This retriever searches the Sequence Read Archive (SRA) databases using the
-    EBI Search API. It supports searching across different SRA entity types
-    (samples, studies, experiments, runs) and can retrieve cross-references
-    and related entities.
-    
-    Setup:
-        Install ``langchain-omics`` and optionally set environment variables
-        for API configuration.
-
-        .. code-block:: bash
-
-            pip install -U langchain-omics
-
-    Key init args:
-        database: str
-            SRA database to search ('sra-sample', 'sra-study', 'sra-experiment', 'sra-run')
-        append_cross_ref: bool
-            Whether to append cross-reference info to document text (default: True)
-        fetch_details: bool
-            Whether to make additional API calls for details (default: False)
-        k: int
-            Number of documents to return (default: 10)
-
-    Instantiate:
-        .. code-block:: python
-
-            from langchain_omics import SRARetriever
-
-            # Search SRA samples (fast mode)
-            retriever = SRARetriever(
-                database="sra-sample",
-                append_cross_ref=True,
-                fetch_details=False,
-                k=5
-            )
-
-    Usage:
-        .. code-block:: python
-
-            query = "human cancer RNA-seq"
-            docs = retriever.invoke(query)
-
-        .. code-block:: none
-
-            [Document(page_content='{
-              "id": "SAMN12345678",
-              "type": "Sample",
-              "database": "sra-sample",
-              "fields": {
-                "description": "Human cancer tissue RNA-seq sample",
-                "scientific_name": "Homo sapiens",
-                "country": "United States"
-              },
-              "cross_references": {
-                "BIOSAMPLE": ["SAMN12345678"],
-                "TAXON": ["9606"]
-              }
-            }', metadata={...})]
-
-    Use within a chain:
-        .. code-block:: python
-
-            from langchain_core.output_parsers import StrOutputParser
-            from langchain_core.prompts import ChatPromptTemplate
-            from langchain_core.runnables import RunnablePassthrough
-            from langchain_openai import ChatOpenAI
-
-            prompt = ChatPromptTemplate.from_template(
-                \"\"\"Answer the question based only on the context provided.
-
-            Context: {context}
-
-            Question: {question}\"\"\"
-            )
-
-            llm = ChatOpenAI(model="gpt-3.5-turbo-0125")
-
-            def format_docs(docs):
-                return "\\n\\n".join(doc.page_content for doc in docs)
-
-            chain = (
-                {"context": retriever | format_docs, "question": RunnablePassthrough()}
-                | prompt
-                | llm
-                | StrOutputParser()
-            )
-
-            chain.invoke("What cancer types are available in the SRA?")
-
-        .. code-block:: none
-
-             Based on the SRA samples retrieved, several cancer types are available
-             including breast cancer, lung cancer, and colorectal cancer samples
-             from human subjects.
-    """
-
-    database: str = "sra-sample"  # sra-sample, sra-study, sra-experiment, sra-run
-    append_cross_ref: bool = True  # Whether to append cross-ref info to text
-    fetch_details: bool = False  # Whether to make additional API calls for details
-    k: int = 10  # Number of documents to return
-    ignore_k_error: bool = False  # Whether to ignore k > max_k errors
+    database: str = "sra-sample"
+    search_mode: str = "domain"
+    k: int = 10
+    max_studies: Optional[int] = None
+    append_cross_ref: bool = True
+    fetch_details: bool = False
 
     def __init__(self, **kwargs):
         """Initialize SRA retriever with validation."""
         super().__init__(**kwargs)
         
+        # Initialize UnifiedSRAClient instance using object.__setattr__ to bypass Pydantic
+        object.__setattr__(self, '_client', UnifiedSRAClient())
+        
         # Validate database
-        if self.database not in SRA_DATABASES:
+        valid_databases = ["sra-sample", "sra-study", "sra-experiment", "sra-run"]
+        if self.database not in valid_databases:
             raise ValueError(
-                f"Invalid database '{self.database}'. "
-                f"Must be one of: {list(SRA_DATABASES.keys())}"
+                f"Invalid database '{self.database}'. Must be one of: {valid_databases}"
+            )
+        
+        # Validate search_mode
+        valid_modes = ["domain", "multi-level", "full"]
+        if self.search_mode not in valid_modes:
+            raise ValueError(
+                f"Invalid search_mode '{self.search_mode}'. Must be one of: {valid_modes}"
             )
 
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun, **kwargs: Any
     ) -> List[Document]:
-        """Retrieve relevant SRA documents for the given query.
+        """Retrieve relevant SRA documents for given query.
         
         Args:
             query: Search query string
-            run_manager: Callback manager for the retriever run
+            run_manager: Callback manager for retriever run
             **kwargs: Additional keyword arguments
             
         Returns:
             List of relevant Document objects
         """
-        # Determine number of results to fetch
         k = kwargs.get("k", self.k)
-        ignore_k_error = kwargs.get("ignore_k_error", self.ignore_k_error)
+        search_mode = kwargs.get("search_mode", self.search_mode)
+        max_studies = kwargs.get("max_studies", self.max_studies)
+        append_cross_ref = kwargs.get("append_cross_ref", self.append_cross_ref)
         fetch_details = kwargs.get("fetch_details", self.fetch_details)
         
-        # Validate k against max_k unless ignore_k_error is True
-        max_k = self.get_max_k(query)
-        if k > max_k:
-            if ignore_k_error:
-                size = max_k
-            else:
-                raise ValueError(
-                    f"Requested k={k} exceeds maximum available results ({max_k}) "
-                    f"for query '{query}' in database '{self.database}'. "
-                    f"Set ignore_k_error=True to allow this."
-                )
-        else:
-            size = k
-        
-        # Get domain configuration
-        domain_config = SRA_DATABASES[self.database]
-        
-        # Get fields to retrieve (always include cross-ref fields)
-        fields = domain_config.get("key_fields", [])
-        if "cross_ref_fields" in domain_config:
-            fields.extend(domain_config["cross_ref_fields"])
-        
         try:
-            # Use paginated loading for efficient API usage
-            if size > 25:
-                entries = self._load_paginated(
-                    query=query,
-                    domain=self.database,
-                    total_needed=size,
-                    fields=fields
+            if search_mode == "domain":
+                return self._search_domain_mode(
+                    query=query, k=k, append_cross_ref=append_cross_ref,
+                    fetch_details=fetch_details, run_manager=run_manager
+                )
+            elif search_mode == "multi-level":
+                return self._search_multilevel_mode(
+                    query=query, k=k, max_studies=max_studies,
+                    append_cross_ref=append_cross_ref, fetch_details=fetch_details,
+                    run_manager=run_manager
+                )
+            elif search_mode == "full":
+                return self._search_full_mode(
+                    query=query, k=k, max_studies=max_studies, run_manager=run_manager
                 )
             else:
-                entries = self._load(
-                    query=query,
-                    domain=self.database,
-                    size=size,
-                    fields=fields
-                )
-            
-            # Convert entries to documents
-            documents = []
-            for entry in entries:
-                try:
-                    doc = self._dict2document(
-                        entry=entry,
-                        domain=self.database,
-                        append_cross_ref=self.append_cross_ref,
-                        fetch_details=fetch_details,
-                        domain_config=domain_config
-                    )
-                    documents.append(doc)
-                except Exception as e:
-                    # Log error but continue with other entries
-                    run_manager.on_text(f"Error processing entry: {e}")
-                    continue
-            
-            # Return exact number if k is specified
-            return documents[:k]
-            
+                raise ValueError(f"Unknown search_mode: {search_mode}")
         except Exception as e:
             run_manager.on_text(f"Error retrieving SRA documents: {e}")
             return []
 
-    def _get_database_info(self) -> Dict[str, Any]:
-        """Get information about the current database configuration.
-        
-        Returns:
-            Dictionary with database configuration information
-        """
-        return SRA_DATABASES.get(self.database, {})
-
-    def get_available_databases(self) -> List[str]:
-        """Get list of available SRA databases.
-        
-        Returns:
-            List of available database identifiers
-        """
-        return list(SRA_DATABASES.keys())
-
-    def switch_database(self, database: str) -> None:
-        """Switch to a different SRA database.
-        
-        Args:
-            database: Database identifier to switch to
-            
-        Raises:
-            ValueError: If database is not valid
-        """
-        if database not in SRA_DATABASES:
-            raise ValueError(
-                f"Invalid database '{database}'. "
-                f"Must be one of: {list(SRA_DATABASES.keys())}"
-            )
-        self.database = database
-
-    def get_max_k(self, query: str) -> int:
-        """Get the maximum number of results available for a query.
+    def _search_domain_mode(
+        self, query: str, k: int, append_cross_ref: bool,
+        fetch_details: bool, run_manager: CallbackManagerForRetrieverRun
+    ) -> List[Document]:
+        """Domain mode: simple search within specified database.
         
         Args:
             query: Search query string
+            k: Number of documents to return
+            append_cross_ref: Whether to include cross-references
+            fetch_details: Whether to fetch related entity details
+            run_manager: Callback manager
             
         Returns:
-            Maximum number of results available for the query in the current database
+            List of Document objects
         """
-        return super().get_max_k(query, self.database)
+        # Use UnifiedSRAClient.search_domain() to find entries
+        entries = self._client.search_domain(self.database, query, size=k)
+        
+        if not entries:
+            return []
+        
+        # Extract entry IDs
+        entry_ids = [entry.get("acc") or entry.get("id") for entry in entries]
+        entry_ids = [eid for eid in entry_ids if eid]
+        
+        if not entry_ids:
+            return []
+        
+        # Use UnifiedSRAClient.get_entries_batch() to get full entry data
+        full_entries = self._client.get_entries_batch(self.database, entry_ids)
+        
+        # Convert each entry to Document with JSON content and metadata
+        documents = []
+        for entry in full_entries:
+            try:
+                doc = self._entry_to_document(
+                    entry=entry, database=self.database,
+                    append_cross_ref=append_cross_ref, fetch_details=fetch_details
+                )
+                documents.append(doc)
+            except Exception as e:
+                run_manager.on_text(f"Error processing entry: {e}")
+                continue
+        
+        # Return exactly k documents
+        return documents[:k]
+
+    def _search_multilevel_mode(
+        self, query: str, k: int, max_studies: Optional[int],
+        append_cross_ref: bool, fetch_details: bool,
+        run_manager: CallbackManagerForRetrieverRun
+    ) -> List[Document]:
+        """Multi-level mode: search across domains using cross-references.
+        
+        Args:
+            query: Search query string
+            k: Number of documents to return
+            max_studies: Maximum number of studies
+            append_cross_ref: Whether to include cross-references
+            fetch_details: Whether to fetch related entity details
+            run_manager: Callback manager
+            
+        Returns:
+            List of Document objects
+        """
+        # Use UnifiedSRAClient.search_multi_level() to find studies
+        study_accessions = self._client.search_multi_level(query, max_studies)
+        
+        if not study_accessions:
+            return []
+        
+        # Use UnifiedSRAClient.get_entries_batch() to get study data
+        studies = self._client.get_entries_batch("sra-study", study_accessions[:k])
+        
+        # Convert each study to Document with JSON content and metadata
+        documents = []
+        for study in studies:
+            try:
+                doc = self._entry_to_document(
+                    entry=study, database="sra-study",
+                    append_cross_ref=append_cross_ref, fetch_details=fetch_details
+                )
+                documents.append(doc)
+            except Exception as e:
+                run_manager.on_text(f"Error processing study: {e}")
+                continue
+        
+        return documents[:k]
+
+    def _search_full_mode(
+        self, query: str, k: int, max_studies: Optional[int],
+        run_manager: CallbackManagerForRetrieverRun
+    ) -> List[Document]:
+        """Full mode: retrieve complete nested study data.
+        
+        Args:
+            query: Search query string
+            k: Number of documents to return
+            max_studies: Maximum number of studies
+            run_manager: Callback manager
+            
+        Returns:
+            List of Document objects
+        """
+        # Use UnifiedSRAClient.search_and_retrieve() to get nested study data
+        studies = self._client.search_and_retrieve(query, max_studies)
+        
+        if not studies:
+            return []
+        
+        # Convert each study to Document with JSON content and metadata
+        documents = []
+        for study in studies[:k]:
+            try:
+                doc = self._study_to_document(study=study)
+                documents.append(doc)
+            except Exception as e:
+                run_manager.on_text(f"Error processing study: {e}")
+                continue
+        
+        return documents
+
+    def _entry_to_document(
+        self, entry: Dict[str, Any], database: str,
+        append_cross_ref: bool, fetch_details: bool
+    ) -> Document:
+        """Convert entry to Document with JSON content and metadata.
+        
+        Args:
+            entry: Entry dictionary
+            database: SRA database name
+            append_cross_ref: Whether to include cross-references
+            fetch_details: Whether to fetch related entity details
+            
+        Returns:
+            LangChain Document object
+        """
+        entry_id = entry.get("acc") or entry.get("id")
+        
+        # Build page content as JSON structure
+        page_content_dict = {
+            "id": entry_id,
+            "type": database.replace("sra-", "").capitalize(),
+            "database": database,
+            "fields": {}
+        }
+        
+        # Add all non-None fields
+        for key, value in entry.items():
+            if key not in ["acc", "id", "source"] and value is not None:
+                page_content_dict["fields"][key] = value
+        
+        page_content = json.dumps(page_content_dict, indent=2)
+        
+        # Build metadata
+        metadata = {
+            "primary_id": entry_id,
+            "database": database,
+            "source": "EBI Search",
+            "url": f"https://www.ebi.ac.uk/ena/browser/view/{entry_id}"
+        }
+        
+        return Document(page_content=page_content, metadata=metadata)
+
+    def _study_to_document(self, study: Dict[str, Any]) -> Document:
+        """Convert nested study to Document with JSON content.
+        
+        Args:
+            study: Nested study dictionary
+            
+        Returns:
+            LangChain Document object
+        """
+        study_id = study.get("acc") or study.get("id")
+        
+        # Build simplified page content
+        page_content_dict = {
+            "id": study_id,
+            "type": "Study",
+            "database": "sra-study",
+            "fields": {
+                "title": study.get("title", ""),
+                "description": study.get("description", "")
+            },
+            "experiments": []
+        }
+        
+        # Add experiments
+        for exp in study.get("experiments", []):
+            exp_dict = {
+                "id": exp.get("acc") or exp.get("id"),
+                "title": exp.get("title", ""),
+                "platform": exp.get("platform", "")
+            }
+            page_content_dict["experiments"].append(exp_dict)
+        
+        page_content = json.dumps(page_content_dict, indent=2)
+        
+        # Build metadata
+        metadata = {
+            "primary_id": study_id,
+            "database": "sra-study",
+            "source": "EBI Search",
+            "url": f"https://www.ebi.ac.uk/ena/browser/view/{study_id}",
+            "num_experiments": len(study.get("experiments", []))
+        }
+        
+        return Document(page_content=page_content, metadata=metadata)
+

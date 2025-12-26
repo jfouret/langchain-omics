@@ -1,7 +1,7 @@
 from importlib import metadata
 
 from langchain_omics.retrievers import SRARetriever
-from langchain_omics.utils import EBISearchAPIWrapper
+from langchain_omics.utils import UnifiedSRAClient
 
 try:
     __version__ = metadata.version(__package__)
@@ -12,6 +12,6 @@ del metadata  # optional, avoids polluting the results of dir(__package__)
 
 __all__ = [
     "SRARetriever",
-    "EBISearchAPIWrapper",
+    "UnifiedSRAClient",
     "__version__",
 ]
