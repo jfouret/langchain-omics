@@ -1,0 +1,138 @@
+<EXPERIMENT_SET>
+  <EXPERIMENT accession="SRX5321239" alias="8" center_name="SUB5111995" broker_name="NCBI">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRX5321239</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB5111995">8</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <TITLE>Sample_B4</TITLE>
+    <STUDY_REF accession="SRP183123">
+      <IDENTIFIERS>
+        <PRIMARY_ID>SRP183123</PRIMARY_ID>
+        <EXTERNAL_ID namespace="BioProject">PRJNA518021</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <DESIGN>
+      <DESIGN_DESCRIPTION>common method</DESIGN_DESCRIPTION>
+      <SAMPLE_DESCRIPTOR accession="SRS4316973">
+        <IDENTIFIERS>
+          <PRIMARY_ID>SRS4316973</PRIMARY_ID>
+          <EXTERNAL_ID namespace="BioSample">SAMN10850737</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <LIBRARY_DESCRIPTOR>
+        <LIBRARY_NAME>8</LIBRARY_NAME>
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <LIBRARY_SELECTION>PCR</LIBRARY_SELECTION>
+        <LIBRARY_LAYOUT>
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <PLATFORM>
+      <ILLUMINA>
+        <INSTRUMENT_MODEL>HiSeq X Ten</INSTRUMENT_MODEL>
+      </ILLUMINA>
+    </PLATFORM>
+    <EXPERIMENT_LINKS>
+      <EXPERIMENT_LINK>
+        <XREF_LINK>
+          <DB>ENA-SAMPLE</DB>
+          <ID>SRS4316973</ID>
+        </XREF_LINK>
+      </EXPERIMENT_LINK>
+      <EXPERIMENT_LINK>
+        <XREF_LINK>
+          <DB>ENA-SUBMISSION</DB>
+          <ID>SRA842612</ID>
+        </XREF_LINK>
+      </EXPERIMENT_LINK>
+      <EXPERIMENT_LINK>
+        <XREF_LINK>
+          <DB>ENA-FASTQ-FILES</DB>
+          <ID><![CDATA[https://www.ebi.ac.uk/ena/portal/api/filereport?accession=SRX5321239&result=read_run&fields=run_accession,fastq_ftp,fastq_md5,fastq_bytes]]></ID>
+        </XREF_LINK>
+      </EXPERIMENT_LINK>
+      <EXPERIMENT_LINK>
+        <XREF_LINK>
+          <DB>ENA-SUBMITTED-FILES</DB>
+          <ID><![CDATA[https://www.ebi.ac.uk/ena/portal/api/filereport?accession=SRX5321239&result=read_run&fields=run_accession,submitted_ftp,submitted_md5,submitted_bytes,submitted_format]]></ID>
+        </XREF_LINK>
+      </EXPERIMENT_LINK>
+    </EXPERIMENT_LINKS>
+    <EXPERIMENT_ATTRIBUTES>
+      <EXPERIMENT_ATTRIBUTE>
+        <TAG>ENA-STATUS-ID</TAG>
+        <VALUE>4</VALUE>
+      </EXPERIMENT_ATTRIBUTE>
+    </EXPERIMENT_ATTRIBUTES>
+  </EXPERIMENT>
+  <EXPERIMENT accession="SRX5321240" alias="5" center_name="SUB5111995" broker_name="NCBI">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRX5321240</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB5111995">5</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <TITLE>Sample_B1</TITLE>
+    <STUDY_REF accession="SRP183123">
+      <IDENTIFIERS>
+        <PRIMARY_ID>SRP183123</PRIMARY_ID>
+        <EXTERNAL_ID namespace="BioProject">PRJNA518021</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <DESIGN>
+      <DESIGN_DESCRIPTION>common method</DESIGN_DESCRIPTION>
+      <SAMPLE_DESCRIPTOR accession="SRS4316973">
+        <IDENTIFIERS>
+          <PRIMARY_ID>SRS4316973</PRIMARY_ID>
+          <EXTERNAL_ID namespace="BioSample">SAMN10850737</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <LIBRARY_DESCRIPTOR>
+        <LIBRARY_NAME>5</LIBRARY_NAME>
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <LIBRARY_SELECTION>PCR</LIBRARY_SELECTION>
+        <LIBRARY_LAYOUT>
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <PLATFORM>
+      <ILLUMINA>
+        <INSTRUMENT_MODEL>HiSeq X Ten</INSTRUMENT_MODEL>
+      </ILLUMINA>
+    </PLATFORM>
+    <EXPERIMENT_LINKS>
+      <EXPERIMENT_LINK>
+        <XREF_LINK>
+          <DB>ENA-SAMPLE</DB>
+          <ID>SRS4316973</ID>
+        </XREF_LINK>
+      </EXPERIMENT_LINK>
+      <EXPERIMENT_LINK>
+        <XREF_LINK>
+          <DB>ENA-SUBMISSION</DB>
+          <ID>SRA842612</ID>
+        </XREF_LINK>
+      </EXPERIMENT_LINK>
+      <EXPERIMENT_LINK>
+        <XREF_LINK>
+          <DB>ENA-FASTQ-FILES</DB>
+          <ID><![CDATA[https://www.ebi.ac.uk/ena/portal/api/filereport?accession=SRX5321240&result=read_run&fields=run_accession,fastq_ftp,fastq_md5,fastq_bytes]]></ID>
+        </XREF_LINK>
+      </EXPERIMENT_LINK>
+      <EXPERIMENT_LINK>
+        <XREF_LINK>
+          <DB>ENA-SUBMITTED-FILES</DB>
+          <ID><![CDATA[https://www.ebi.ac.uk/ena/portal/api/filereport?accession=SRX5321240&result=read_run&fields=run_accession,submitted_ftp,submitted_md5,submitted_bytes,submitted_format]]></ID>
+        </XREF_LINK>
+      </EXPERIMENT_LINK>
+    </EXPERIMENT_LINKS>
+    <EXPERIMENT_ATTRIBUTES>
+      <EXPERIMENT_ATTRIBUTE>
+        <TAG>ENA-STATUS-ID</TAG>
+        <VALUE>4</VALUE>
+      </EXPERIMENT_ATTRIBUTE>
+    </EXPERIMENT_ATTRIBUTES>
+  </EXPERIMENT>
+</EXPERIMENT_SET>

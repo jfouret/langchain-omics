@@ -1,0 +1,341 @@
+# serializer version: 1
+# name: test_parse_experiment_xml
+  list([
+    dict({
+      'accession': 'SRX5321239',
+      'alias': '8',
+      'broker_name': 'NCBI',
+      'center_name': 'SUB5111995',
+      'value': dict({
+        'design': dict({
+          'design_description': 'common method',
+          'library_descriptor': dict({
+            'library_layout': 'single',
+            'library_name': '8',
+            'library_selection': 'PCR',
+            'library_source': 'TRANSCRIPTOMIC',
+            'library_strategy': 'RNA-Seq',
+          }),
+          'sample_descriptor': dict({
+            'accession': 'SRS4316973',
+            'identifiers': dict({
+              'external_id': dict({
+                'namespace': 'BioSample',
+                'value': 'SAMN10850737',
+              }),
+              'primary_id': 'SRS4316973',
+            }),
+          }),
+        }),
+        'experiment_attributes': dict({
+          'ENA-STATUS-ID': '4',
+        }),
+        'identifiers': dict({
+          'primary_id': 'SRX5321239',
+          'submitter_id': dict({
+            'namespace': 'SUB5111995',
+            'value': '8',
+          }),
+        }),
+        'platform': dict({
+          'illumina': dict({
+            'instrument_model': 'HiSeq X Ten',
+          }),
+        }),
+        'study_ref': dict({
+          'accession': 'SRP183123',
+          'identifiers': dict({
+            'external_id': dict({
+              'namespace': 'BioProject',
+              'value': 'PRJNA518021',
+            }),
+            'primary_id': 'SRP183123',
+          }),
+        }),
+        'title': 'Sample_B4',
+      }),
+    }),
+    dict({
+      'accession': 'SRX5321240',
+      'alias': '5',
+      'broker_name': 'NCBI',
+      'center_name': 'SUB5111995',
+      'value': dict({
+        'design': dict({
+          'design_description': 'common method',
+          'library_descriptor': dict({
+            'library_layout': 'single',
+            'library_name': '5',
+            'library_selection': 'PCR',
+            'library_source': 'TRANSCRIPTOMIC',
+            'library_strategy': 'RNA-Seq',
+          }),
+          'sample_descriptor': dict({
+            'accession': 'SRS4316973',
+            'identifiers': dict({
+              'external_id': dict({
+                'namespace': 'BioSample',
+                'value': 'SAMN10850737',
+              }),
+              'primary_id': 'SRS4316973',
+            }),
+          }),
+        }),
+        'experiment_attributes': dict({
+          'ENA-STATUS-ID': '4',
+        }),
+        'identifiers': dict({
+          'primary_id': 'SRX5321240',
+          'submitter_id': dict({
+            'namespace': 'SUB5111995',
+            'value': '5',
+          }),
+        }),
+        'platform': dict({
+          'illumina': dict({
+            'instrument_model': 'HiSeq X Ten',
+          }),
+        }),
+        'study_ref': dict({
+          'accession': 'SRP183123',
+          'identifiers': dict({
+            'external_id': dict({
+              'namespace': 'BioProject',
+              'value': 'PRJNA518021',
+            }),
+            'primary_id': 'SRP183123',
+          }),
+        }),
+        'title': 'Sample_B1',
+      }),
+    }),
+  ])
+# ---
+# name: test_parse_run_xml
+  list([
+    dict({
+      'accession': 'SRR8517649',
+      'alias': 'Sample_B4.deadaptor.fastq.gz',
+      'broker_name': 'NCBI',
+      'center_name': 'SUB5111995',
+      'value': dict({
+        'experiment_ref': dict({
+          'accession': 'SRX5321239',
+          'identifiers': dict({
+            'primary_id': 'SRX5321239',
+            'submitter_id': dict({
+              'namespace': 'SUB5111995',
+              'value': '8',
+            }),
+          }),
+        }),
+        'identifiers': dict({
+          'primary_id': 'SRR8517649',
+          'submitter_id': dict({
+            'label': '7',
+            'namespace': 'SUB5111995',
+            'value': 'Sample_B4.deadaptor.fastq.gz',
+          }),
+        }),
+        'run_attributes': dict({
+          'ENA-BASE-COUNT': '581719714',
+          'ENA-FIRST-PUBLIC': '2020-03-02',
+          'ENA-LAST-UPDATE': '2020-03-02',
+          'ENA-SPOT-COUNT': '24355023',
+          'ENA-STATUS-ID': '4',
+          'loader': 'fastq-load.py',
+        }),
+        'title': 'HiSeq X Ten sequencing; Sample_B4',
+      }),
+    }),
+    dict({
+      'accession': 'SRR8517649',
+      'alias': 'Sample_B4.deadaptor.fastq.gz',
+      'broker_name': 'NCBI',
+      'center_name': 'SUB5111995',
+      'value': dict({
+        'experiment_ref': dict({
+          'accession': 'SRX5321239',
+          'identifiers': dict({
+            'primary_id': 'SRX5321239',
+            'submitter_id': dict({
+              'namespace': 'SUB5111995',
+              'value': '8',
+            }),
+          }),
+        }),
+        'identifiers': dict({
+          'primary_id': 'SRR8517649',
+          'submitter_id': dict({
+            'label': '7',
+            'namespace': 'SUB5111995',
+            'value': 'Sample_B4.deadaptor.fastq.gz',
+          }),
+        }),
+        'run_attributes': dict({
+          'ENA-BASE-COUNT': '581719714',
+          'ENA-FIRST-PUBLIC': '2020-03-02',
+          'ENA-LAST-UPDATE': '2020-03-02',
+          'ENA-SPOT-COUNT': '24355023',
+          'ENA-STATUS-ID': '4',
+          'loader': 'fastq-load.py',
+        }),
+        'title': 'HiSeq X Ten sequencing; Sample_B4',
+      }),
+    }),
+  ])
+# ---
+# name: test_parse_sample_xml
+  list([
+    dict({
+      'accession': 'SAMN10850737',
+      'alias': '001',
+      'broker_name': 'NCBI',
+      'center_name': 'Soochow University',
+      'value': dict({
+        'identifiers': dict({
+          'external_id': dict({
+            'namespace': 'BioSample',
+            'value': 'SAMN10850737',
+          }),
+          'primary_id': 'SAMN10850737',
+          'secondary_id': 'SRS4316973',
+          'submitter_id': dict({
+            'namespace': 'Soochow University',
+            'value': '001',
+          }),
+        }),
+        'sample_attributes': dict({
+          'BioSampleModel': 'Human',
+          'ENA-FIRST-PUBLIC': '2019-01-31',
+          'ENA-LAST-UPDATE': '2019-02-01',
+          'INSDC secondary accession': 'SRS4316973',
+          'NCBI submission package': 'Human.1.0',
+          'age': '1',
+          'biomaterial_provider': 'Soochow University',
+          'isolate': '001',
+          'organism': 'Homo sapiens',
+          'sex': 'not determined',
+          'tissue': 'Skin',
+        }),
+        'sample_name': dict({
+          'common_name': 'human',
+          'scientific_name': 'Homo sapiens',
+          'taxon_id': '9606',
+        }),
+        'title': 'Human sample from Homo sapiens',
+      }),
+    }),
+    dict({
+      'accession': 'SAMN10850738',
+      'alias': 'GSM3585226',
+      'broker_name': 'NCBI',
+      'center_name': 'Anatomy, Embryology & Physiology, Academic Medical Center Amsterdam',
+      'value': dict({
+        'identifiers': dict({
+          'external_id': dict({
+            'namespace': 'BioSample',
+            'value': 'SAMN10850738',
+          }),
+          'primary_id': 'SAMN10850738',
+          'secondary_id': 'SRS4311146',
+          'submitter_id': dict({
+            'namespace': 'Anatomy, Embryology & Physiology, Academic Medical Center Amsterdam',
+            'value': 'GSM3585226',
+          }),
+        }),
+        'sample_attributes': dict({
+          'BioSampleModel': 'Generic',
+          'ENA-FIRST-PUBLIC': '2019-03-09',
+          'ENA-LAST-UPDATE': '2019-03-09',
+          'INSDC secondary accession': 'SRS4311146',
+          'NCBI submission package': 'Generic.1.0',
+          'cell population': 'FACS on Tbx3-VENUS',
+          'developmental tissue': 'E17.5',
+          'organism': 'Mus musculus',
+          'source_name': 'VENUS+ SAN tissue',
+          'tissue': 'VENUS+ sinoatrial node',
+        }),
+        'sample_name': dict({
+          'common_name': 'house mouse',
+          'scientific_name': 'Mus musculus',
+          'taxon_id': '10090',
+        }),
+        'title': 'SAN_E17.5_Venus2',
+      }),
+    }),
+  ])
+# ---
+# name: test_parse_study_xml
+  list([
+    dict({
+      'accession': 'SRP001709',
+      'alias': 'Deep sequencing the human gut microbiome',
+      'broker_name': 'NCBI',
+      'center_name': 'CGS-GL',
+      'value': dict({
+        'descriptor': dict({
+          'center_project_name': 'human gut metagenome',
+          'study_abstract': 'Deep sequencing of the total community DNA, cDNA, and rDNA isolated from the human fecal microbiome.   Sequence data submitted to the Sequence Read Archive and the WGS projects can be found using the Project data button.',
+          'study_title': 'Human fecal microbiome',
+          'study_type': dict({
+            'existing_study_type': 'Metagenomics',
+          }),
+        }),
+        'identifiers': dict({
+          'external_id': dict({
+            'label': 'primary',
+            'namespace': 'BioProject',
+            'value': 'PRJNA43253',
+          }),
+          'primary_id': 'SRP001709',
+          'secondary_id': 'PRJNA43253',
+          'submitter_id': dict({
+            'namespace': 'CGS-GL',
+            'value': 'Deep sequencing the human gut microbiome',
+          }),
+        }),
+        'study_attributes': dict({
+          'ENA-FIRST-PUBLIC': '2010-06-02',
+          'ENA-LAST-UPDATE': '2017-09-25',
+          'ENA-STATUS-ID': '4',
+          'parent_bioproject': 'PRJNA46941',
+        }),
+      }),
+    }),
+    dict({
+      'accession': 'SRP183123',
+      'alias': 'PRJNA518021',
+      'broker_name': 'NCBI',
+      'center_name': 'BioProject',
+      'value': dict({
+        'descriptor': dict({
+          'center_project_name': 'Human',
+          'study_abstract': 'Expression of miRNAs in human skin fibroblast WS1 after 5 Gy irradiation.',
+          'study_title': 'Human Transcriptome',
+          'study_type': dict({
+            'existing_study_type': 'Other',
+          }),
+        }),
+        'identifiers': dict({
+          'external_id': dict({
+            'label': 'primary',
+            'namespace': 'BioProject',
+            'value': 'PRJNA518021',
+          }),
+          'primary_id': 'SRP183123',
+          'secondary_id': 'PRJNA518021',
+          'submitter_id': dict({
+            'namespace': 'BioProject',
+            'value': 'PRJNA518021',
+          }),
+        }),
+        'study_attributes': dict({
+          'ENA-FIRST-PUBLIC': '2020-03-02',
+          'ENA-LAST-UPDATE': '2020-03-02',
+          'ENA-STATUS-ID': '4',
+        }),
+      }),
+    }),
+  ])
+# ---

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <SAMPLE_SET>
+    <SAMPLE accession="SAMN10850737" alias="001" center_name="Soochow University" broker_name="NCBI">
+      <IDENTIFIERS>
+        <PRIMARY_ID>SAMN10850737</PRIMARY_ID>
+        <SECONDARY_ID>SRS4316973</SECONDARY_ID>
+        <EXTERNAL_ID namespace="BioSample">SAMN10850737</EXTERNAL_ID>
+        <SUBMITTER_ID namespace="Soochow University">001</SUBMITTER_ID>
+      </IDENTIFIERS>
+      <TITLE>Human sample from Homo sapiens</TITLE>
+      <SAMPLE_NAME>
+        <TAXON_ID>9606</TAXON_ID>
+        <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+        <COMMON_NAME>human</COMMON_NAME>
+      </SAMPLE_NAME>
+      <SAMPLE_LINKS>
+        <SAMPLE_LINK>
+          <XREF_LINK>
+            <DB>ENA-FASTQ-FILES</DB>
+            <ID><![CDATA[https://www.ebi.ac.uk/ena/portal/api/filereport?accession=SRS4316973&result=read_run&fields=run_accession,fastq_ftp,fastq_md5,fastq_bytes]]></ID>
+          </XREF_LINK>
+        </SAMPLE_LINK>
+        <SAMPLE_LINK>
+          <XREF_LINK>
+            <DB>ENA-SUBMITTED-FILES</DB>
+            <ID><![CDATA[https://www.ebi.ac.uk/ena/portal/api/filereport?accession=SRS4316973&result=read_run&fields=run_accession,submitted_ftp,submitted_md5,submitted_bytes,submitted_format]]></ID>
+          </XREF_LINK>
+        </SAMPLE_LINK>
+      </SAMPLE_LINKS>
+      <SAMPLE_ATTRIBUTES>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>isolate</TAG>
+          <VALUE>001</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>INSDC secondary accession</TAG>
+          <VALUE>SRS4316973</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>NCBI submission package</TAG>
+          <VALUE>Human.1.0</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>organism</TAG>
+          <VALUE>Homo sapiens</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>sex</TAG>
+          <VALUE>not determined</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>tissue</TAG>
+          <VALUE>Skin</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>age</TAG>
+          <VALUE>1</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>biomaterial_provider</TAG>
+          <VALUE>Soochow University</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>BioSampleModel</TAG>
+          <VALUE>Human</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>ENA-FIRST-PUBLIC</TAG>
+          <VALUE>2019-01-31</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>ENA-LAST-UPDATE</TAG>
+          <VALUE>2019-02-01</VALUE>
+        </SAMPLE_ATTRIBUTE>
+      </SAMPLE_ATTRIBUTES>
+    </SAMPLE>
+    <SAMPLE accession="SAMN10850738" alias="GSM3585226" center_name="Anatomy, Embryology &amp; Physiology, Academic Medical Center Amsterdam" broker_name="NCBI">
+      <IDENTIFIERS>
+        <PRIMARY_ID>SAMN10850738</PRIMARY_ID>
+        <SECONDARY_ID>SRS4311146</SECONDARY_ID>
+        <EXTERNAL_ID namespace="BioSample">SAMN10850738</EXTERNAL_ID>
+        <SUBMITTER_ID namespace="Anatomy, Embryology &amp; Physiology, Academic Medical Center Amsterdam">GSM3585226</SUBMITTER_ID>
+      </IDENTIFIERS>
+      <TITLE>SAN_E17.5_Venus2</TITLE>
+      <SAMPLE_NAME>
+        <TAXON_ID>10090</TAXON_ID>
+        <SCIENTIFIC_NAME>Mus musculus</SCIENTIFIC_NAME>
+        <COMMON_NAME>house mouse</COMMON_NAME>
+      </SAMPLE_NAME>
+      <SAMPLE_LINKS>
+        <SAMPLE_LINK>
+          <XREF_LINK>
+            <DB>ENA-FASTQ-FILES</DB>
+            <ID><![CDATA[https://www.ebi.ac.uk/ena/portal/api/filereport?accession=SRS4311146&result=read_run&fields=run_accession,fastq_ftp,fastq_md5,fastq_bytes]]></ID>
+          </XREF_LINK>
+        </SAMPLE_LINK>
+        <SAMPLE_LINK>
+          <XREF_LINK>
+            <DB>ENA-SUBMITTED-FILES</DB>
+            <ID><![CDATA[https://www.ebi.ac.uk/ena/portal/api/filereport?accession=SRS4311146&result=read_run&fields=run_accession,submitted_ftp,submitted_md5,submitted_bytes,submitted_format]]></ID>
+          </XREF_LINK>
+        </SAMPLE_LINK>
+      </SAMPLE_LINKS>
+      <SAMPLE_ATTRIBUTES>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>INSDC secondary accession</TAG>
+          <VALUE>SRS4311146</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>NCBI submission package</TAG>
+          <VALUE>Generic.1.0</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>organism</TAG>
+          <VALUE>Mus musculus</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>cell population</TAG>
+          <VALUE>FACS on Tbx3-VENUS</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>developmental tissue</TAG>
+          <VALUE>E17.5</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>tissue</TAG>
+          <VALUE>VENUS+ sinoatrial node</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>source_name</TAG>
+          <VALUE>VENUS+ SAN tissue</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>BioSampleModel</TAG>
+          <VALUE>Generic</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>ENA-FIRST-PUBLIC</TAG>
+          <VALUE>2019-03-09</VALUE>
+        </SAMPLE_ATTRIBUTE>
+        <SAMPLE_ATTRIBUTE>
+          <TAG>ENA-LAST-UPDATE</TAG>
+          <VALUE>2019-03-09</VALUE>
+        </SAMPLE_ATTRIBUTE>
+      </SAMPLE_ATTRIBUTES>
+    </SAMPLE>
+  </SAMPLE_SET>
