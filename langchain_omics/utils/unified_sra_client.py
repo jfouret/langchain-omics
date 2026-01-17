@@ -2,21 +2,57 @@
 
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple, Set
-from typing_extensions import Annotated
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Set
 from urllib.parse import urlencode
 
-import pandas as pd
 import requests
-from pydantic import BaseModel, ConfigDict, Field, validate_call
+from pydantic import BaseModel, Field, validate_call
+from typing_extensions import Annotated
 
 from .ena_xml_parser import parse_ena_xml
 
-class _UndirectedGraph:
-    def __init__(self) -> None:
-        self._adj: Dict[Tuple[str, str], Set[Tuple[str, str]]] = {}
+
+@dataclass(frozen=True)
+class Entry:
+    """Represents an EBI entry with an accession and domain.
     
-    def add_edge(self, n1: Tuple[str, str], n2: Tuple[str, str]) -> None:
+    Attributes:
+        acc: The unique accession identifier of the entry.
+        domain: The EBI domain type (e.g., 'sra-study', 'sra-experiment').
+    """
+    acc: str
+    domain: str
+    
+    def __eq__(self, other: object) -> bool:
+        """Compare entries based on their accession only.
+        
+        Args:
+            other: Another object to compare with.
+            
+        Returns:
+            True if both are Entry objects with the same accession.
+        """
+        if not isinstance(other, Entry):
+            return NotImplemented
+        return self.acc == other.acc
+    
+    def __hash__(self) -> int:
+        """Hash entry based on its accession only.
+        
+        Returns:
+            Hash value based on the accession.
+        """
+        return hash(self.acc)
+
+class UndirectedGraph:
+    """Undirected graph for storing Entry relationships."""
+    
+    def __init__(self) -> None:
+        self._adj: Dict[Entry, Set[Entry]] = {}
+    
+    def add_edge(self, n1: Entry, n2: Entry) -> None:
+        """Add an edge between two entries."""
         if n1 not in self._adj:
             self._adj[n1] = set()
         if n2 not in self._adj:
@@ -24,13 +60,16 @@ class _UndirectedGraph:
         self._adj[n1].add(n2)
         self._adj[n2].add(n1)
     
-    def has_edge(self, n1: Tuple[str, str], n2: Tuple[str, str]) -> bool:
+    def has_edge(self, n1: Entry, n2: Entry) -> bool:
+        """Check if an edge exists between two entries."""
         return n2 in self._adj.get(n1, set())
     
-    def get_neighbors(self, node: Tuple[str, str]) -> List[Tuple[str, str]]:
-        return list(self._adj.get(node, []))
+    def get_neighbors(self, entry: Entry) -> List[Entry]:
+        """Get all neighboring entries for a given entry."""
+        return list(self._adj.get(entry, []))
     
-    def get_linked_nodes(self) -> List[Tuple[str, str]]:
+    def get_linked_entries(self) -> List[Entry]:
+        """Get all entries that have at least one connection."""
         return list(self._adj.keys())
 
 class UnifiedSRAClientConfig(BaseModel):
@@ -61,7 +100,7 @@ class UnifiedSRAClientConfig(BaseModel):
         description="Number of results to fetch per page in search/crossref operations"
     )
     default_max_crossref: int = Field(
-        default=1000000,
+        default=1000,
         ge=1,
         le=1000000,
         description="Default maximum number of cross-references to return per entry"
@@ -97,14 +136,14 @@ class UnifiedSRAClient:
         "User-Agent": "langchain-omics"
     }
 
-    _relationships: Dict[str, Dict[str, List[str]]] = {
+    _relationships: Dict[str, List[str]] = {
         "sra-study": ["sra-experiment"],
         "sra-experiment": ["sra-study", "sra-sample", "sra-run"],
         "sra-sample": ["sra-experiment"],
         "sra-run": ["sra-experiment"]
     }
 
-    _valid_domains = {"sra-study", "sra-experiment", "sra-sample", "sra-run"}
+    _valid_domains: Set[str] = {"sra-study", "sra-experiment", "sra-sample", "sra-run"}
 
     def __init__(
         self,
@@ -125,7 +164,10 @@ class UnifiedSRAClient:
             self._logger.addHandler(handler)
 
 
-    def _make_request(self, url: str, params: Optional[Dict[str, Any]] = None, mimetype: str = "json") -> Any:
+    def _make_request(
+            self, url: str, params: Optional[Dict[str, Any]] = None,
+            mimetype: str = "json"
+        ) -> Any:
         """Make HTTP request with error handling and rate limiting.
         
         Args:
@@ -141,7 +183,7 @@ class UnifiedSRAClient:
             if clean_params:
                 url = f"{url}?{urlencode(clean_params)}"
 
-        self._logger.log(5, f"TRACE: Making request to {url} with mimetype={mimetype}")
+        self._logger.debug(f"Making request to {url} with mimetype={mimetype}")
 
         time.sleep(self._config.rate_limit_delay)
 
@@ -154,50 +196,48 @@ class UnifiedSRAClient:
         else:
             raise ValueError(f"Invalid mimetype: {mimetype}. Must be 'xml' or 'json'")
 
-        try:
-            response = requests.get(
-                url, headers=headers, timeout=self._config.request_timeout
-            )
+        response = requests.get(
+            url, headers=headers, timeout=self._config.request_timeout
+        )
 
-            # Handle 204 No Content (end of pagination)
-            if response.status_code == 204:
-                return [] if mimetype == "json" else ""
+        # Handle 204 No Content (end of pagination)
+        if response.status_code == 204:
+            return [] if mimetype == "json" else ""
 
-            response.raise_for_status()
-            
-            if mimetype == "xml":
-                return response.text
-            else:
-                return response.json()
-
-        except requests.exceptions.RequestException as e:
-            raise requests.RequestException(f"API request failed: {e}")
-        except ValueError as e:
-            raise ValueError(f"Invalid JSON response: {e}")
+        response.raise_for_status()
+        
+        if mimetype == "xml":
+            return response.text
+        else:
+            return response.json()
 
     def _fetch_entries_batch(
-        self, entry_ids: List[str]
+        self, accs: List[str]
     ) -> Dict[str, Dict[str, Any]]:
         """Use ENA Browser XML API for entry retrieval (private batch method).
 
         Args:
-            entry_ids: List of entry IDs (max 100 per batch)
+            accs: List of accession identifiers (max 100 per batch)
 
         Returns:
             Dict of entry dictionaries with full XML-parsed data, keyed by accession
         """
-        if not entry_ids:
+        if not accs:
             return dict()
 
         # Limit to 100 entries per batch (ENA Browser limit)
-        assert len(entry_ids) <= self._config.batch_size
+        if len(accs) > self._config.batch_size:
+            raise ValueError(
+                f"Batch size {len(accs)} exceeds maximum allowed batch size "
+                f"of {self._config.batch_size}"
+            )
 
         self._logger.debug(
-            f"Getting entries batch: {len(entry_ids)} entries"
+            f"Getting entries batch: {len(accs)} entries"
         )
 
         # Build URL for ENA Browser XML API
-        url = f"{self._ena_browser_base_url}/xml/{','.join(entry_ids)}"
+        url = f"{self._ena_browser_base_url}/xml/{','.join(accs)}"
         params = {
             "download": "false",
             "gzip": "true",
@@ -205,59 +245,44 @@ class UnifiedSRAClient:
         }
 
         # Fetch XML data from ENA Browser API
-        try:
-            xml_response = self._make_request(url, params, mimetype="xml")
-            self._logger.debug(f"Retrieved XML response for {len(entry_ids)} entries")
-        except Exception as e:
-            self._logger.error(f"Get entries XML failed: {e}")
-            raise
-
-        if not xml_response:
-            self._logger.debug("Empty XML response")
-            if len(entry_ids) > 0:
-                exit(1)
-            return dict()
+        xml_response = self._make_request(url, params, mimetype="xml")
 
         # Parse XML using the XML parser
-        try:
-            parsed_dict = parse_ena_xml(xml_response)
-            self._logger.debug(f"Parsed XML into {len(parsed_dict)} entries")
-            return parsed_dict
-        except Exception as e:
-            self._logger.error(f"Failed to parse XML response: {e}")
-            return dict()
+        parsed_dict = parse_ena_xml(xml_response)
+        self._logger.debug(f"Parsed XML into {len(parsed_dict)} entries")
+        return parsed_dict
 
     @validate_call
     def fetch_entries(
         self,
-        entry_ids: Annotated[
+        accs: Annotated[
             List[str],
-            Field(min_length=1, description="List of entry IDs to fetch")
+            Field(min_length=1, description="List of accession identifiers to fetch")
         ]
     ) -> Dict[str, Dict[str, Any]]:
         """Fetch entries in batches of 100 (ENA Browser limit).
 
         Args:
-            entry_ids: List of entry IDs (any size)
+            accs: List of accession identifiers (any size)
 
         Returns:
             Dict of all entry dictionaries, keyed by accession
         """
-        if not entry_ids:
+        if not accs:
             return dict()
 
         self._logger.debug(
-            f"Getting entries: {len(entry_ids)} total entries"
+            f"Getting entries: {len(accs)} total entries"
         )
         all_entries = dict()
 
         # Process in batches of self.batch_size
-        for i in range(0, len(entry_ids), self._config.batch_size):
-            batch_ids = entry_ids[i : i + self._config.batch_size]
+        for i in range(0, len(accs), self._config.batch_size):
+            batch_accs = accs[i : i + self._config.batch_size]
             self._logger.debug(
-                f"Processing batch from {i}: {len(batch_ids)} entries"
+                f"Processing batch from {i}: {len(batch_accs)} entries"
             )
-            batch_entries = self._fetch_entries_batch(batch_ids)
+            batch_entries = self._fetch_entries_batch(batch_accs)
             all_entries.update(batch_entries)
 
         self._logger.debug(f"Retrieved {len(all_entries)} total entries")
@@ -266,7 +291,7 @@ class UnifiedSRAClient:
     def _fetch_crossref_batch(
         self,
         domain: str,
-        entry_ids: List[str],
+        accs: List[str],
         target_domain: str,
         max_size: Optional[int] = None
     ) -> Dict[str, Set[str]]:
@@ -274,36 +299,43 @@ class UnifiedSRAClient:
 
         Args:
             domain: Source domain (e.g., 'sra-sample')
-            entry_ids: List of source entry IDs (max self._config.batch_size)
+            accs: List of source accession identifiers (max self._config.batch_size)
             target_domain: Target domain (e.g., 'sra-experiment')
-            max_size: Maximum number of cross-references to return per entry (default: default_max_crossref)
+            max_size: Maximum number of cross-references to return per entry 
+                (default: default_max_crossref)
 
         Returns:
-            Dictionary mapping entry_id -> list of cross-referenced IDs
+            Dictionary mapping accession -> set of cross-referenced accessions
         """
-        if not entry_ids:
+        if not accs:
             return {}
 
         # Limit to 100 entries per batch
-        assert len(entry_ids) <= self._config.batch_size
+        if len(accs) > self._config.batch_size:
+            raise ValueError(
+                f"Batch size {len(accs)} exceeds maximum allowed batch size "
+                f"of {self._config.batch_size}"
+            )
 
         if max_size is None:
             max_size = self._config.default_max_crossref
 
         all_results = {}
-        entries_to_process = list(entry_ids)
+        accs_to_process = list(accs)
         start: int = 0
 
-        # 
-        while len(entries_to_process) > 0 and start < max_size:
+        # Process entries with pagination support
+        # The loop handles paginated cross-reference results, fetching additional
+        # pages when the API reports more references than returned in a single response
+        while len(accs_to_process) > 0 and start < max_size:
 
             url = (
                 f"{self._ebi_search_base_url}/{domain}/entry/"
-                f"{','.join(entries_to_process)}/xref/{target_domain}"
+                f"{','.join(accs_to_process)}/xref/{target_domain}"
             )
             
-            entries_to_process = []
-            start = start + self._config.search_size
+            # Clear the list - we'll repopulate if more pages are needed
+            accs_to_process = []
 
             if start + self._config.search_size > max_size:
                 search_size = max_size - start
@@ -315,43 +347,40 @@ class UnifiedSRAClient:
 
             self._logger.debug(
                 f"Cross-reference batch call: {domain} -> {target_domain}, "
-                f"{len(entry_ids)} entries, max_size={max_size}"
+                f"{len(accs)} entries, max_size={max_size}"
             )
         
-            try:
-                response = self._make_request(url, params)
-                entries = response.get("entries", [])
+            response = self._make_request(url, params)
+            response_entries = response.get("entries", [])
 
-                # Build mapping of source_id -> [target_ids] and check for pagination
-                for entry in entries:
-                    # The source_id is actually the acc/id of the entry we queried
-                    s_id = entry.get("acc") or entry.get("id")
-                    if s_id:
-                        cross_refs = set()
-                        references = entry.get("references", [])
-                        for ref in references:
-                            acc = ref.get("acc")
-                            if acc:
-                                cross_refs.add(acc)
-                        if s_id not in all_results.keys():
-                            all_results[s_id] = cross_refs
-                        else:
-                            all_results[s_id] = all_results[s_id] | cross_refs
+            # Build mapping of source_id -> [target_ids] and check for pagination
+            for response_entry in response_entries:
+                source_acc = response_entry.get("acc") or response_entry.get("id")
+                if source_acc:
+                    cross_refs = set()
+                    references = response_entry.get("references", [])
+                    for ref in references:
+                        acc = ref.get("acc")
+                        if acc:
+                            cross_refs.add(acc)
+                    if source_acc not in all_results:
+                        all_results[source_acc] = cross_refs
+                    else:
+                        all_results[source_acc] |= cross_refs
 
-                        reference_count = entry.get("referenceCount", 0)
-                        # start is the next 0-based start
-                        if reference_count > start:
-                            entries_to_process.append(s_id)
+                    reference_count = response_entry.get("referenceCount", 0)
+                    # Check if there are more references to fetch (pagination)
+                    if start + len(cross_refs) < reference_count:
+                        accs_to_process.append(source_acc)
 
-            except Exception as e:
-                self._logger.error(f"Cross-reference batch chunk failed: {e}")
-                # Add empty results for failed chunk
-                raise
 
-        # add empty if not returned
-        for entry in entry_ids:
-            if entry not in all_results.keys():
-                all_results[entry] = []
+            # Increment start AFTER processing the request
+            start = start + self._config.search_size
+
+        # Add empty sets for entries that were not returned
+        for acc in accs:
+            if acc not in all_results:
+                all_results[acc] = set()
 
         return all_results
 
@@ -365,11 +394,11 @@ class UnifiedSRAClient:
                 description="SRA domain name"
             )
         ],
-        entry_ids: Annotated[
+        accs: Annotated[
             List[str],
             Field(
                 min_length=1,
-                description="List of source entry IDs"
+                description="List of source accession identifiers"
             )
         ],
         target_domain: Annotated[
@@ -392,23 +421,24 @@ class UnifiedSRAClient:
 
         Args:
             domain: Source domain (e.g., 'sra-sample')
-            entry_ids: List of source entry IDs (any size)
+            accs: List of source accession identifiers (any size)
             target_domain: Target domain (e.g., 'sra-experiment')
-            max_size: Maximum number of cross-references to return per entry (default: default_max_crossref)
+            max_size: Maximum number of cross-references to return per entry (default:
+                default_max_crossref)
 
         Returns:
-            Dictionary mapping entry_id -> list of cross-referenced IDs
+            Dictionary mapping accession -> set of cross-referenced accessions
         """
-        if not entry_ids:
+        if not accs:
             return {}
 
         all_results = {}
 
         # Process in chunks of self._config.batch_size
-        for i in range(0, len(entry_ids), self._config.batch_size):
-            batch_ids = entry_ids[i : i + self._config.batch_size]
+        for i in range(0, len(accs), self._config.batch_size):
+            batch_accs = accs[i : i + self._config.batch_size]
             batch_results = self._fetch_crossref_batch(
-                domain, batch_ids, target_domain, max_size
+                domain, batch_accs, target_domain, max_size
             )
             all_results.update(batch_results)
 
@@ -439,16 +469,17 @@ class UnifiedSRAClient:
                 description="Maximum number of results to return"
             )
         ] = None
-    ) -> List[Dict[str, Any]]:
+    ) -> List[str]:
         """Use EBI Search for simple domain search with pagination support.
 
         Args:
             domain: SRA domain (e.g., 'sra-study', 'sra-sample')
             query: Search query string
-            max_size: Maximum number of results to return (default: default_max_search_hits)
+            max_size: Maximum number of results to return (default:
+                default_max_search_hits)
 
         Returns:
-            List of entry dictionaries
+            List of accession identifiers
         """
         if max_size is None:
             max_size = self._config.default_max_search_hits
@@ -457,12 +488,12 @@ class UnifiedSRAClient:
             f"Searching domain {domain} with query '{query}', max_size={max_size}"
         )
 
-        all_entries = []
+        returned_accs = []
         start = 0
 
-        while len(all_entries) < max_size:
+        while len(returned_accs) < max_size:
             # Determine how many results to fetch in this request
-            fetch_size = min(self._config.search_size, max_size - len(all_entries))
+            fetch_size = min(self._config.search_size, max_size - len(returned_accs))
 
             url = f"{self._ebi_search_base_url}/{domain}"
             params = {
@@ -472,44 +503,46 @@ class UnifiedSRAClient:
                 "format": "json"
             }
 
-            try:
-                response = self._make_request(url, params)
-                entries = response.get("entries", [])
-                hit_count = response.get("hitCount", 0)
+            response = self._make_request(url, params)
+            response_entries = response.get("entries", [])
+            hit_count = response.get("hitCount", 0)
 
-                if not entries:
-                    # No more results available
-                    break
-
-                all_entries.extend(entries)
-                self._logger.debug(
-                    f"Fetched {len(entries)} entries (total: {len(all_entries)}/{max_size}, "
-                    f"hitCount: {hit_count})"
-                )
-
-                # Check if we've fetched all available results
-                if start + len(entries) >= hit_count:
-                    break
-
-                start += len(entries)
-
-            except Exception as e:
-                self._logger.debug(f"Domain search failed for {domain}: {e}")
+            if not response_entries:
+                # No more results available
                 break
 
+            # Extract accessions from response entries
+            batch_accs : List[str] = [
+                response_entry.get("acc") or response_entry.get("id")
+                for response_entry in response_entries
+                if response_entry.get("acc") or response_entry.get("id")
+            ]
+            returned_accs.extend(batch_accs)
+            self._logger.debug(
+                f"Fetched {len(batch_accs)} entries"
+                f"(total: {len(returned_accs)}/{max_size}, "
+                f"hitCount: {hit_count})"
+            )
+
+            # Check if we've fetched all available results
+            if start + len(response_entries) >= hit_count:
+                break
+
+            start += len(response_entries)
+
         self._logger.debug(
-            f"Domain search returned {len(all_entries)} entries for {domain}"
+            f"Domain search returned {len(returned_accs)} entries for {domain}"
         )
-        return all_entries
+        return returned_accs
 
     @validate_call
     def search_multiple_domains(
         self,
-        databases: Annotated[
+        domains: Annotated[
             List[str],
             Field(
                 min_length=1,
-                description="List of database names to search"
+                description="List of EBI domain names to search"
             )
         ],
         query: Annotated[
@@ -524,56 +557,67 @@ class UnifiedSRAClient:
             Field(
                 ge=1,
                 le=1000000,
-                description="Default maximum results per database"
+                description="Default maximum results per domain"
             )
         ] = None,
-        max_size_per_db: Annotated[
+        max_size_per_domain: Annotated[
             Optional[Dict[str, int]],
-            Field(description="Custom max_size per database")
+            Field(description="Custom max_size per domain")
         ] = None,
-    ) -> Dict[str, List[Dict[str, Any]]]:
-        """Search across multiple databases and return results by database.
+    ) -> Dict[str, List[str]]:
+        """Search across multiple EBI domains and return results by domain.
 
         Args:
-            databases: List of database names to search
+            domains: List of EBI domain names to search
                 (e.g., ["sra-study", "sra-sample"])
             query: Search query string
-            max_size: Default maximum number of results per database
-                (used if not in max_size_per_db, default: default_max_search_hits)
-            max_size_per_db: Optional dictionary mapping database name to custom max_size limit
-                        If database is not in keys, uses the default max_size parameter
+            max_size: Default maximum number of results per domain
+                (used if not in max_size_per_domain, default: default_max_search_hits)
+            max_size_per_domain: Optional dictionary mapping domain name to custom 
+                max_size limit
+                If domain is not in keys, uses the default max_size parameter
 
         Returns:
-            Dictionary mapping database name to list of entry dictionaries.
-            Maintains search order by processing databases in the order provided.
+            Dictionary mapping domain name to list of accessions.
+            Maintains search order by processing domains in the order provided.
         """
-        self._logger.debug(f"Searching multiple databases: {databases}")
+        self._logger.debug(f"Searching multiple domains: {domains}")
         results = {}
 
-        for database in databases:
-            assert database in self._valid_domains
+        for domain in domains:
+            if domain not in self._valid_domains:
+                raise ValueError(
+                    f"Invalid domain: '{domain}'. "
+                    f"Must be one of: {', '.join(self._valid_domains)}"
+                )
             
-            # Determine max_size for this database
-            if max_size_per_db:
-                db_max_size = max_size_per_db.get(database, max_size)
+            # Determine effective max_size for this domain
+            effective_max_size = max_size
+            if effective_max_size is None:
+                effective_max_size = self._config.default_max_search_hits
+            
+            if max_size_per_domain:
+                domain_max_size = max_size_per_domain.get(domain, effective_max_size)
             else:
-                db_max_size = max_size
+                domain_max_size = effective_max_size
 
-            self._logger.debug(f"Searching database: {database} with max_size={db_max_size}")
-            entries = self.search_domain(database, query, max_size=db_max_size)
-            results[database] = entries
-            self._logger.debug(f"Found {len(entries)} entries in {database}")
+            self._logger.debug(
+                f"Searching domain: {domain} with max_size={domain_max_size}"
+            )
+            returned_accs = self.search_domain(domain, query, max_size=domain_max_size)
+            results[domain] = returned_accs
+            self._logger.debug(f"Found {len(returned_accs)} entries in {domain}")
 
         return results
 
     @validate_call
     def fetch_crossref_recursively(
         self,
-        entities: Annotated[
-            List[Tuple[str, str]],
+        entries: Annotated[
+            List[Entry],
             Field(
                 min_length=1,
-                description="List of (ID, DATABASE) tuples to start from"
+                description="List of Entry objects to start from"
             )
         ],
         max_depth: Annotated[
@@ -592,70 +636,91 @@ class UnifiedSRAClient:
                 description="Maximum cross-references per entry"
             )
         ] = None
-    ) -> _UndirectedGraph:
+    ) -> UndirectedGraph:
         """Recursively build cross-reference relations with depth limit.
 
         Args:
-            entities: List of (ID, DATABASE) tuples to start from
+            entries: List of Entry objects to start from
             max_depth: Maximum recursion depth (default: 2)
             max_size: Maximum number of cross-references to fetch per entry 
             (default: default_max_crossref)
 
         Returns:
-            
+            UndirectedGraph: A graph object containing all cross-reference relationships
+                discovered during the recursive traversal.
         """
 
-        graph = _UndirectedGraph()
+        graph = UndirectedGraph()
 
         def _recursive_walk(
-            _graph: _UndirectedGraph,
-            _entities: Dict[str, Set[str]],
+            _graph: UndirectedGraph,
+            _entries_by_domain: Dict[str, Set[str]],
             _fetched: Dict[str, Set[str]],
             _depth: int,
-        ) -> _UndirectedGraph:
-            """Recursive helper function to build the graph."""
-
-            # quit recursion if max depth was reached
+        ) -> UndirectedGraph:
+            """Recursive helper function to traverse cross-references and build 
+                the graph.
+            
+            This implements a breadth-first traversal across domains, collecting
+            cross-references up to the specified maximum depth. For each domain,
+            it follows only the defined relationship paths (non-branching per domain).
+            """
+            # Base case: stop recursion if max depth was reached
             if _depth >= max_depth:
                 return _graph
             
-            # prepare next recursion
-            next_entities = {}
+            # Initialize next_entries_by_domain with empty sets for all valid domains
+            next_entries_by_domain = {}
             next_count: int = 0
             for domain in self._valid_domains:
-                next_entities[domain] = set()
+                next_entries_by_domain[domain] = set()
 
-            # iterate over all domains
-            for domain, queries in _entities.items():
+            # Iterate over all source domains to find cross-references
+            for domain, queries in _entries_by_domain.items():
 
-                # iterate over possible target domain for each domain
+                # Skip if domain has no defined relationships
+                if domain not in self._relationships:
+                    raise ValueError("Invalid domain: " + domain)
+
+                # For each source domain, follow its defined relationship paths
                 for target_domain in self._relationships[domain]:
 
                     crossref = self.fetch_crossref(
                         domain, list(queries), target_domain, max_size)
                     
-                    for source_id, target_ids in crossref.items():
-                        # feed next entities to fetch
-                        next_count += len(target_ids)
-                        new_entities = target_ids - _fetched[target_domain]
-                        next_entities[target_domain] = \
-                            next_entities[target_domain] | new_entities
+                    # Track already-fetched entries to avoid duplicates
+                    _fetched[domain] |= queries
+                    
+                    for source_acc, target_accs in crossref.items():
+                        # Collect new entries for next recursion level
+                        next_count += len(target_accs)
+                        new_entries = target_accs - _fetched[target_domain]
+                        next_entries_by_domain[target_domain] = \
+                            next_entries_by_domain[target_domain] | new_entries
                         
-                        # add edges to graph
-                        for target_id in target_ids:
-                            _graph.add_edge(
-                                (source_id, domain),
-                                (target_id, target_domain)
-                            )
-            # next recursion only if 
+                        # Add edges to graph for all cross-references
+                        for target_acc in target_accs:
+                            source_entry = Entry(acc=source_acc, domain=domain)
+                            target_entry = Entry(acc=target_acc, domain=target_domain)
+                            _graph.add_edge(source_entry, target_entry)
+            # Continue to next recursion only if there are new entries to fetch
             if next_count > 0:
-                _graph = _recursive_walk(_graph, next_entities, _fetched, _depth + 1)
+                _graph = _recursive_walk(
+                    _graph, next_entries_by_domain, _fetched, _depth + 1
+                )
             return _graph
+        
+        # Initialize fetched dictionary with empty sets for each domain
         init_fetched = {}
         for domain in self._valid_domains:
             init_fetched[domain] = set()
-        init_queries = dict(init_fetched)
-        for entity in entities:
-            init_queries[entity[1]].add(entity[0])
-        graph = _recursive_walk(graph, init_queries, init_fetched, 0)
+        
+        # Initialize entries_by_domain with empty sets, then populate with input entries
+        init_entries_by_domain = {}
+        for domain in self._valid_domains:
+            init_entries_by_domain[domain] = set()
+        for entry in entries:
+            init_entries_by_domain[entry.domain].add(entry.acc)
+        
+        graph = _recursive_walk(graph, init_entries_by_domain, init_fetched, 0)
         return graph
