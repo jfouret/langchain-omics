@@ -17,7 +17,7 @@ import xml.etree.ElementTree as ET
 from typing import Any, Dict, List
 
 
-def parse_ena_xml(xml_string: str) -> List[Dict[str, Any]]:
+def parse_ena_xml(xml_string: str) -> Dict[str,Dict[str, Any]]:
     """Parse ENA XML string and convert to JSON-serializable list of dictionaries.
 
     This is the main entry point for parsing ENA XML data. It handles all four
@@ -45,10 +45,10 @@ def parse_ena_xml(xml_string: str) -> List[Dict[str, Any]]:
     # Get the child elements (e.g., <STUDY> elements from <STUDY_SET>)
     type_elements = list(root)
     
-    result = []
+    result = {}
     for element in type_elements:
         parsed = parse_type_element(element, entity_type)
-        result.append(parsed)
+        result[parsed["accession"]] = parsed
     
     return result
 

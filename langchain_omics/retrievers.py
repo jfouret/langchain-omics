@@ -199,7 +199,7 @@ class SRARetriever(BaseRetriever):
             - relations_df: DataFrame with columns [source_id, target_id, source_db, target_db]
         """
         # Build relations DataFrame using recursive cross-reference
-        relations_df = self._client.get_cross_ref_recursively(
+        relations_df = self._client.fetch_crossref_recursively(
             discovered_ids, self.CROSS_REF_MAP, max_depth=2
         )
 
@@ -360,6 +360,8 @@ class SRARetriever(BaseRetriever):
         self, hierarchies: List[Dict[str, Any]]
     ) -> Set[Tuple[str, str]]:
         """Collect all entity (ID, DATABASE) tuples from hierarchies.
+        Mandatory to fetch entries details per database type. 
+        Note for later: see if we can use relations_df to avoid this step.
 
         Args:
             hierarchies: List of hierarchy dictionaries
@@ -387,64 +389,50 @@ class SRARetriever(BaseRetriever):
 
     def _fetch_entity_data(
         self, entity_keys: Set[Tuple[str, str]]
-    ) -> Dict[Tuple[str, str], Dict[str, Any]]:
+    ) -> Dict[str, Dict[str, Any]]:
         """Batch fetch entity data from API.
 
         Args:
             entity_keys: Set of (entity_id, entity_db) tuples
 
         Returns:
-            Dictionary mapping (entity_id, entity_db) to entity data
+            Dictionary mapping entity_id to entity data
         """
-        entity_data_map = {}
+        entries_across_dbs = {}
 
         # Group entity IDs by database for efficient batch fetching
+        # XML API requires IDs in a single batch to be from the same database
         entities_by_db: Dict[str, List[str]] = {}
         for entity_id, entity_db in entity_keys:
             if entity_db not in entities_by_db:
                 entities_by_db[entity_db] = []
             entities_by_db[entity_db].append(entity_id)
 
-        # Fetch data for each database
+        # Fetch data for each database separately
         for database, entity_ids in entities_by_db.items():
             if not entity_ids:
                 continue
 
-            # Batch fetch entity data
-            entries = self._client.get_entries_paginated(database, entity_ids)
+            # Batch fetch entity data using XML API
+            # IDs must be from the same database for XML API
+            entries_across_dbs.update(self._client.fetch_entries(entity_ids))
 
-            # Build lookup map
-            for entry in entries:
-                entry_id = entry.get("acc") or entry.get("id")
-                if entry_id:
-                    entity_data_map[(entry_id, database)] = entry
-
-        return entity_data_map
+        return entries_across_dbs
 
     def _populate_hierarchy_fields(
         self,
         hierarchies: List[Dict[str, Any]],
-        entity_data_map: Dict[Tuple[str, str], Dict[str, Any]],
+        entity_data_map: Dict[str, Dict[str, Any]],
     ) -> None:
         """Populate fields in hierarchy nodes from fetched entity data.
 
         Args:
             hierarchies: List of hierarchy dictionaries (modified in place)
-            entity_data_map: Dictionary mapping (entity_id, entity_db) to entity data
+            entity_data_map: Dictionary mapping entity_id to entity data
         """
         def populate_node(node: Dict[str, Any]) -> None:
             """Recursively populate fields in a node."""
-            entity_id = node.get("id")
-            entity_db = node.get("database")
-
-            if entity_id and entity_db:
-                entity_key = (entity_id, entity_db)
-                if entity_key in entity_data_map:
-                    entity_data = entity_data_map[entity_key]
-                    # Copy all fields except id, type, database, and crossref
-                    for key, value in entity_data.items():
-                        if key not in ["id", "type", "database", "crossref"]:
-                            node[key] = value
+            node["fields"] = entity_data_map[node.get("id")]
 
             # Recursively populate cross-references
             for child in node.get("crossref", []):
